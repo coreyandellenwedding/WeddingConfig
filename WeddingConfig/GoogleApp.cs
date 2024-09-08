@@ -26,37 +26,37 @@ namespace WeddingConfig
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
-            var credentialsJson = GetGoogleCredential();
-            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
-            {
-                var credential = GoogleCredential.FromStream(stream)
-                    .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+            //var credentialsJson = GetGoogleCredential();
+            //using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
+            //{
+            //    var credential = GoogleCredential.FromStream(stream)
+            //        .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
 
-                var service = new SheetsService(new BaseClientService.Initializer()
-                {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "Corey Wedding",
-                });
+            //    var service = new SheetsService(new BaseClientService.Initializer()
+            //    {
+            //        HttpClientInitializer = credential,
+            //        ApplicationName = "Corey Wedding",
+            //    });
 
-                var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
-                var range = $"{GuestListSheetTitle}!A1:A";
-                var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+            //    var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
+            //    var range = $"{GuestListSheetTitle}!A1:A";
+            //    var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
 
-                var response = await request.ExecuteAsync();
-                var values = response.Values;
+            //    var response = await request.ExecuteAsync();
+            //    var values = response.Values;
 
-                if (values != null && values.Count > 0)
-                {
-                    foreach (var row in values)
-                    {
-                        _logger.LogInformation(string.Join(", ", row));
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("No data found.");
-                }
-            }
+            //    if (values != null && values.Count > 0)
+            //    {
+            //        foreach (var row in values)
+            //        {
+            //            _logger.LogInformation(string.Join(", ", row));
+            //        }
+            //    }
+            //    else
+            //    {
+            //        _logger.LogInformation("No data found.");
+            //    }
+            //}
 
             //string storedHash = row[0].ToString(); // The hashed value in column A
 
