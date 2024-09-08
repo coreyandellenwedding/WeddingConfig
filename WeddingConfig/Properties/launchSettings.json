@@ -1,0 +1,9 @@
+{
+  "profiles": {
+    "WeddingConfig": {
+      "commandName": "Project",
+      "commandLineArgs": "--port 7172",
+      "launchBrowser": false
+    }
+  }
+}
