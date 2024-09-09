@@ -26,7 +26,8 @@ namespace WeddingConfig
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
-            //var credentialsJson = GetGoogleCredential();
+            var credentialsJson = GetGoogleCredential();
+            return new OkObjectResult(new { success = credentialsJson });
             //using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
             //{
             //    var credential = GoogleCredential.FromStream(stream)
@@ -58,25 +59,7 @@ namespace WeddingConfig
             //    }
             //}
 
-            //string storedHash = row[0].ToString(); // The hashed value in column A
-
-            //// Check if the hashed name matches the provided code
-            //if (VerifyHash(code, storedHash))
-            //{
-            //    var name = row[1].ToString();
-            //    var description = row[2].ToString();
-            //    var imageUrl = row[3].ToString(); // Assuming images are URLs
-
-            //    return new OkObjectResult(new
-            //    {
-            //        success = true,
-            //        name = name,
-            //        description = description,
-            //        image = imageUrl
-            //    });
-            //}
-
-            return new OkObjectResult(new { success = true });
+            //return new OkObjectResult(new { success = true });
         }
 
         private bool VerifyHash(string code, string storedHash)
