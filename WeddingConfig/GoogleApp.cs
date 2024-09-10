@@ -14,7 +14,7 @@ namespace WeddingConfig
 {
     public class GoogleApp
     {
-        private const string GuestListSheetId = "GuestListSheedId";
+        private const string GuestListSheetId = "GuestListSheetId";
         private const string GuestListSheetTitle = "GuestList";
         private readonly ILogger<GoogleApp> _logger;
         public GoogleApp(ILogger<GoogleApp> logger)
@@ -26,40 +26,45 @@ namespace WeddingConfig
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
+            var isConfirmed = false;
             var credentialsJson = GetGoogleCredential();
-            return new OkObjectResult(new { success = credentialsJson });
-            //using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
-            //{
-            //    var credential = GoogleCredential.FromStream(stream)
-            //        .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
+            var code = await DeserializeCode(req);
+            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
+            {
+                var credential = GoogleCredential.FromStream(stream)
+                    .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
 
-            //    var service = new SheetsService(new BaseClientService.Initializer()
-            //    {
-            //        HttpClientInitializer = credential,
-            //        ApplicationName = "Corey Wedding",
-            //    });
+                var service = new SheetsService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "Corey Wedding",
+                });
 
-            //    var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
-            //    var range = $"{GuestListSheetTitle}!A1:A";
-            //    var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+                var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
+                var range = $"{GuestListSheetTitle}!A1:A";
+                var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
 
-            //    var response = await request.ExecuteAsync();
-            //    var values = response.Values;
+                var response = await request.ExecuteAsync();
+                var values = response.Values;
+                var allCodes = new List<string>();
 
-            //    if (values != null && values.Count > 0)
-            //    {
-            //        foreach (var row in values)
-            //        {
-            //            _logger.LogInformation(string.Join(", ", row));
-            //        }
-            //    }
-            //    else
-            //    {
-            //        _logger.LogInformation("No data found.");
-            //    }
-            //}
+                if (values != null && values.Count > 0)
+                {
+                    foreach (var row in values)
+                    {
+                        _logger.LogInformation(string.Join(", ", row));
+                        allCodes.Add(string.Join(", ", row));
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation("No data found.");
+                }
 
-            //return new OkObjectResult(new { success = true });
+                isConfirmed = allCodes.Contains(code);
+            }
+
+            return new OkObjectResult(new { isConfirmed });
         }
 
         private bool VerifyHash(string code, string storedHash)
@@ -84,6 +89,16 @@ namespace WeddingConfig
                 .Replace("\\r", "\r");  // Convert \r to carriage returns
 
             return unescapedJson;
+        }
+
+        private async Task<string> DeserializeCode(HttpRequest req)
+        {
+            var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+
+            // Deserialize the JSON to a dynamic object or a defined model
+            dynamic jsonData = JsonConvert.DeserializeObject(requestBody) ?? throw new Exception("No code");
+            
+            return jsonData.Code;
         }
     }
 }
