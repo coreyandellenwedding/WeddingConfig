@@ -1,6 +1,7 @@
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
+using Google.Apis.Sheets.v4.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -31,40 +32,38 @@ namespace WeddingConfig
             var code = await DeserializeCode(req);
             try
             {
-                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
-                {
-                    var credential = GoogleCredential.FromStream(stream)
+                var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
+                var credential = GoogleCredential.FromStream(stream)
                         .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
 
-                    var service = new SheetsService(new BaseClientService.Initializer()
+                var service = new SheetsService(new BaseClientService.Initializer()
+                {
+                    HttpClientInitializer = credential,
+                    ApplicationName = "Corey Wedding Config",
+                });
+
+                var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
+                var range = $"{GuestListSheetTitle}!A1:A";
+                var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+
+                var response = await request.ExecuteAsync();
+                var values = response.Values;
+                var allCodes = new List<string>();
+
+                if (values != null && values.Count > 0)
+                {
+                    foreach (var row in values)
                     {
-                        HttpClientInitializer = credential,
-                        ApplicationName = "Corey Wedding",
-                    });
-
-                    var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
-                    var range = $"{GuestListSheetTitle}!A1:A";
-                    var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
-
-                    var response = await request.ExecuteAsync();
-                    var values = response.Values;
-                    var allCodes = new List<string>();
-
-                    if (values != null && values.Count > 0)
-                    {
-                        foreach (var row in values)
-                        {
-                            _logger.LogInformation(string.Join(", ", row));
-                            allCodes.Add(string.Join(", ", row));
-                        }
+                        _logger.LogInformation(string.Join(", ", row));
+                        allCodes.Add(string.Join(", ", row));
                     }
-                    else
-                    {
-                        _logger.LogInformation("No data found.");
-                    }
-
-                    isConfirmed = allCodes.Contains(code);
                 }
+                else
+                {
+                    _logger.LogInformation("No data found.");
+                }
+
+                isConfirmed = allCodes.Contains(code);
             } catch (Exception ex)
             {
                 return new OkObjectResult(new { ex });
@@ -102,8 +101,8 @@ namespace WeddingConfig
             var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
 
             // Deserialize the JSON to a dynamic object or a defined model
-            dynamic jsonData = JsonConvert.DeserializeObject(requestBody) ?? throw new Exception("No code");
-            
+            var jsonData = JsonConvert.DeserializeObject<UserRequest>(requestBody) ?? throw new Exception("No code");
+
             return jsonData.Code;
         }
     }
