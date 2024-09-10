@@ -29,39 +29,45 @@ namespace WeddingConfig
             var isConfirmed = false;
             var credentialsJson = GetGoogleCredential();
             var code = await DeserializeCode(req);
-            using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
+            try
             {
-                var credential = GoogleCredential.FromStream(stream)
-                    .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
-
-                var service = new SheetsService(new BaseClientService.Initializer()
+                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson)))
                 {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "Corey Wedding",
-                });
+                    var credential = GoogleCredential.FromStream(stream)
+                        .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
 
-                var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
-                var range = $"{GuestListSheetTitle}!A1:A";
-                var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
-
-                var response = await request.ExecuteAsync();
-                var values = response.Values;
-                var allCodes = new List<string>();
-
-                if (values != null && values.Count > 0)
-                {
-                    foreach (var row in values)
+                    var service = new SheetsService(new BaseClientService.Initializer()
                     {
-                        _logger.LogInformation(string.Join(", ", row));
-                        allCodes.Add(string.Join(", ", row));
-                    }
-                }
-                else
-                {
-                    _logger.LogInformation("No data found.");
-                }
+                        HttpClientInitializer = credential,
+                        ApplicationName = "Corey Wedding",
+                    });
 
-                isConfirmed = allCodes.Contains(code);
+                    var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
+                    var range = $"{GuestListSheetTitle}!A1:A";
+                    var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
+
+                    var response = await request.ExecuteAsync();
+                    var values = response.Values;
+                    var allCodes = new List<string>();
+
+                    if (values != null && values.Count > 0)
+                    {
+                        foreach (var row in values)
+                        {
+                            _logger.LogInformation(string.Join(", ", row));
+                            allCodes.Add(string.Join(", ", row));
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogInformation("No data found.");
+                    }
+
+                    isConfirmed = allCodes.Contains(code);
+                }
+            } catch (Exception ex)
+            {
+                return new OkObjectResult(new { ex });
             }
 
             return new OkObjectResult(new { isConfirmed });
