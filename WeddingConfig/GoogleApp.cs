@@ -27,9 +27,9 @@ namespace WeddingConfig
         public async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req)
         {
-            var isConfirmed = false;
             var credentialsJson = GetGoogleCredential();
             var code = await DeserializeCode(req);
+            Guest? matchingGuest = null;
             try
             {
                 var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
@@ -43,33 +43,57 @@ namespace WeddingConfig
                 });
 
                 var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
-                var range = $"{GuestListSheetTitle}!A1:A";
+                var range = $"{GuestListSheetTitle}!A1:Z";
                 var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
 
                 var response = await request.ExecuteAsync();
                 var values = response.Values;
-                var allCodes = new List<string>();
 
                 if (values != null && values.Count > 0)
                 {
                     foreach (var row in values)
                     {
-                        _logger.LogInformation(string.Join(", ", row));
-                        allCodes.Add(string.Join(", ", row));
+                        var rowToGuest = new Guest
+                        {
+                            Code = row[0]?.ToString(),
+                            Name = row[1]?.ToString(),
+                            Email = row[2]?.ToString(),
+                            Description = row[3]?.ToString(),
+                            HasOne = bool.TryParse(row[4]?.ToString(), out var hasOne) && hasOne
+                        };
+
+                        if (rowToGuest.Code == code)
+                        {
+                            matchingGuest = rowToGuest;
+                            break;
+                        }
                     }
                 }
                 else
                 {
                     _logger.LogInformation("No data found.");
                 }
-
-                isConfirmed = allCodes.Contains(code);
             } catch (Exception ex)
             {
                 return new OkObjectResult(new { ex });
             }
 
-            return new OkObjectResult(new { isConfirmed });
+            if (matchingGuest != null)
+            {
+                return new OkObjectResult(new UserResponse
+                {
+                    IsConfirmed = matchingGuest != null,
+                    Name = matchingGuest?.Name?.ToString(),
+                    Email = matchingGuest?.Email?.ToString(),
+                    Description = matchingGuest?.Description?.ToString(),
+                    HasOne = matchingGuest?.HasOne
+                });
+            }
+
+            return new OkObjectResult(new UserResponse
+            {
+                IsConfirmed = false,
+            });
         }
 
         private bool VerifyHash(string code, string storedHash)
