@@ -54,12 +54,13 @@ namespace WeddingConfig
                     {
                         var rowToGuest = new Guest
                         {
-                            Code = row[0]?.ToString(),
-                            Name = row[1]?.ToString(),
-                            Email = row[2]?.ToString(),
-                            Description = row[3]?.ToString(),
-                            HasOne = bool.TryParse(row[4]?.ToString(), out var hasOne) && hasOne
+                            Code = row.Count > 0 ? row[0]?.ToString() : null,
+                            Name = row.Count > 1 ? row[1]?.ToString() : null,
+                            Email = row.Count > 2 ? row[2]?.ToString() : null,
+                            Description = row.Count > 3 ? row[3]?.ToString() ?? "Hello!" : "Hello!",
+                            HasOne = row.Count > 4 && row[4] != null ? row[4].ToString()?.ToLower() == "true" : false
                         };
+
 
                         if (rowToGuest.Code == code)
                         {
