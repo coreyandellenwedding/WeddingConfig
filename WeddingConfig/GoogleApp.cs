@@ -58,7 +58,9 @@ namespace WeddingConfig
                             Name = row.Count > 1 ? row[1]?.ToString() : null,
                             Email = row.Count > 2 ? row[2]?.ToString() : null,
                             Description = row.Count > 3 ? row[3]?.ToString() ?? "Hello!" : "Hello!",
-                            HasOne = row.Count > 4 && row[4] != null ? row[4].ToString()?.ToLower() == "true" : false
+                            HasOne = row.Count > 4 && row[4] != null ? row[4].ToString()?.ToLower() == "true" : false,
+                            HasCeremony = row.Count > 5 && row[5] != null ? row[5].ToString()?.ToLower() == "true" : false,
+                            HasReception = row.Count > 6 && row[6] != null ? row[6].ToString()?.ToLower() == "true" : false,
                         };
 
 
@@ -86,7 +88,9 @@ namespace WeddingConfig
                     Name = matchingGuest?.Name?.ToString(),
                     Email = matchingGuest?.Email?.ToString(),
                     Description = matchingGuest?.Description?.ToString(),
-                    HasOne = matchingGuest?.HasOne
+                    HasOne = matchingGuest?.HasOne,
+                    HasCeremony = matchingGuest?.HasCeremony,
+                    HasReception = matchingGuest?.HasReception,
                 });
             }
 

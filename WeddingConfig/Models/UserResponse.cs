@@ -13,5 +13,7 @@ namespace WeddingConfig.Models
         public string? Email { get; set; }
         public bool? HasOne { get; set; }
         public string? Description { get; set; }
+        public bool? HasCeremony { get; set; }
+        public bool? HasReception { get; set; }
     }
 }
