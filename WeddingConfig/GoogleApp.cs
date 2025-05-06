@@ -1,6 +1,7 @@
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
+using Google.Apis.Sheets.v4.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.Functions.Worker;
@@ -29,18 +30,17 @@ namespace WeddingConfig
             var credentialsJson = GetGoogleCredential();
             var code = await DeserializeCode(req);
             Guest? matchingGuest = null;
+            var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
+            var credential = GoogleCredential.FromStream(stream)
+                    .CreateScoped(SheetsService.Scope.Spreadsheets);
+
+            var service = new SheetsService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "Corey Wedding Config",
+            });
             try
             {
-                var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
-                var credential = GoogleCredential.FromStream(stream)
-                        .CreateScoped(SheetsService.Scope.SpreadsheetsReadonly);
-
-                var service = new SheetsService(new BaseClientService.Initializer()
-                {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "Corey Wedding Config",
-                });
-
                 var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
                 var range = $"{GuestListSheetTitle}!A1:Z";
                 var request = service.Spreadsheets.Values.Get(spreadsheetId, range);
@@ -72,6 +72,7 @@ namespace WeddingConfig
 
             if (matchingGuest != null)
             {
+                await LogLogin(service, matchingGuest);
                 return new OkObjectResult(new UserResponse
                 {
                     IsConfirmed = matchingGuest != null,
@@ -88,6 +89,37 @@ namespace WeddingConfig
             {
                 IsConfirmed = false,
             });
+        }
+
+        private async Task LogLogin(SheetsService service, Guest guest)
+        {
+            try
+            {
+                var spreadsheetId = Environment.GetEnvironmentVariable(GuestListSheetId);
+
+                var range = "Metrics!A1";
+
+                var valueRange = new ValueRange
+                {
+                    Values = new List<IList<dynamic>> {
+                    new List<dynamic> {
+                        DateTime.Now,
+                        guest.Name,
+                        guest.Code,
+                        "Login"
+                }
+            }
+                };
+
+                var appendRequest = service.Spreadsheets.Values.Append(valueRange, spreadsheetId, range);
+                appendRequest.ValueInputOption = SpreadsheetsResource.ValuesResource.AppendRequest.ValueInputOptionEnum.USERENTERED;
+
+                await appendRequest.ExecuteAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.Log(LogLevel.Error, ex.Message);
+            }
         }
 
         private Guest CreateGuest(IList<object> row) => 
