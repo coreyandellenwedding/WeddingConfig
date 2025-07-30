@@ -15,5 +15,6 @@ namespace WeddingConfig.Models
         public string? Description { get; set; }
         public bool? HasCeremony { get; set; }
         public bool? HasReception { get; set; }
+        public string AttendanceStatus { get; set; }
     }
 }

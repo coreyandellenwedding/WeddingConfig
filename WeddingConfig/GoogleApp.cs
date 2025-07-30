@@ -1,15 +1,19 @@
+using Azure;
 using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using System;
 using System.Security.Cryptography;
 using System.Text;
 using WeddingConfig.Models;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace WeddingConfig
 {
@@ -17,6 +21,7 @@ namespace WeddingConfig
     {
         private const string GuestListSheetId = "GuestListSheetId";
         private const string GuestListSheetTitle = "GuestList";
+        private const string RsvpTitle = "RSVP";
         private readonly ILogger<GoogleApp> _logger;
         public GoogleApp(ILogger<GoogleApp> logger)
         {
@@ -33,6 +38,7 @@ namespace WeddingConfig
             var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
             var credential = GoogleCredential.FromStream(stream)
                     .CreateScoped(SheetsService.Scope.Spreadsheets);
+            var attendanceStatus = string.Empty;
 
             var service = new SheetsService(new BaseClientService.Initializer()
             {
@@ -65,6 +71,9 @@ namespace WeddingConfig
                 {
                     _logger.LogInformation("No data found.");
                 }
+
+                attendanceStatus = await GetRsvpStatus(spreadsheetId, service, code);
+
             } catch (Exception ex)
             {
                 return new OkObjectResult(new { ex });
@@ -82,6 +91,7 @@ namespace WeddingConfig
                     HasOne = matchingGuest?.HasOne,
                     HasCeremony = matchingGuest?.HasCeremony,
                     HasReception = matchingGuest?.HasReception,
+                    AttendanceStatus = attendanceStatus,
                 });
             }
 
@@ -89,6 +99,34 @@ namespace WeddingConfig
             {
                 IsConfirmed = false,
             });
+        }
+
+        private async Task<string> GetRsvpStatus(string? spreadsheetId, SheetsService service, string code)
+        {
+            var rsvpRange = $"{RsvpTitle}!A1:Z";
+            var rsvpRequest = service.Spreadsheets.Values.Get(spreadsheetId, rsvpRange);
+            var rsvpResponse = await rsvpRequest.ExecuteAsync();
+
+            var values = rsvpResponse.Values;
+
+            if (values != null && values.Count > 0)
+            {
+                foreach (var row in values)
+                {
+                    var rowToGuest = CreateRsvp(row);
+
+                    if (rowToGuest.Code == code)
+                    {
+                        return rowToGuest.Attendance ?? "unknown";
+                    }
+                }
+            }
+            else
+            {
+                _logger.LogInformation("No data found.");
+            }
+
+            return "unknown";
         }
 
         private async Task LogLogin(SheetsService service, Guest guest)
@@ -121,6 +159,32 @@ namespace WeddingConfig
                 _logger.Log(LogLevel.Error, ex.Message);
             }
         }
+
+        private Rsvp CreateRsvp(IList<object> row)
+        {
+            DateTime date = DateTime.Now;
+            if (row.Count > 0)
+            {
+                try
+                {
+                    DateTime.TryParse(row[0].ToString(), out date);
+                } catch (Exception e)
+                {
+                    _logger.LogError(e.Message);
+                }
+            }
+
+            return new Rsvp
+            {
+                Date = date,
+                Code = row.Count > 1 ? row[1]?.ToString() : null,
+                Name = row.Count > 2 ? row[2]?.ToString() : null,
+                Email = row.Count > 3 ? row[3]?.ToString() : null,
+                PlusOne = row.Count > 4 ? row[4]?.ToString() : null,
+                Attendance = row.Count > 5 ? row[5]?.ToString() : null,
+            };
+        }
+            
 
         private Guest CreateGuest(IList<object> row) => 
             new Guest
